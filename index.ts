@@ -1,33 +1,12 @@
-import fs from 'fs';
-
+import {
+  pagesDirPath,
+  componentsDirPath,
+  layoutsDirPath,
+  composablesDirPath,
+} from './constants';
+import { replaceByPath, reverseObject } from './utils';
 // @ts-ignore
 import i18nJSON from './zh.json';
-
-function getFilesPath(dir: string, files: string[] = []) {
-  const fileList = fs.readdirSync(dir);
-
-  for (const file of fileList) {
-    const name = `${dir}/${file}`;
-    if (fs.statSync(name).isDirectory()) {
-      getFilesPath(name, files);
-    } else {
-      files.push(name);
-    }
-  }
-
-  return files;
-}
-
-function getFileContent(filePath: string) {
-  return Bun.file(filePath).text();
-}
-
-function reverseObject(object: Record<string, any>) {
-  return Object.entries(object).reduce((acc, [key, value]) => {
-    acc[value] = key;
-    return acc;
-  }, {} as Record<string, any>);
-}
 
 function replaceTextInTemplate(str: string) {
   const findTemplateRegex = /<template[^>]*>([\s\S]*?)<\/template>/;
@@ -37,39 +16,23 @@ function replaceTextInTemplate(str: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
-      if (notFoundTextCollectorSet.has(trimmedText)) {
-        notFoundTextCollectorSet.delete(trimmedText);
-      }
+      if (!i18nKey) return matched;
 
-      if (i18nKey) {
-        const isHTML = type === 'htmlContent';
+      const isHTML = type === 'htmlContent';
 
-        return matched.replace(
-          trimmedText,
-          isHTML ? `{{ $t('${i18nKey}') }}` : `$t('${i18nKey}')`
-        );
-      }
-
-      notFoundTextCollectorSet.add(trimmedText);
-
-      return matched;
+      return matched.replace(
+        trimmedText,
+        isHTML ? `{{ $t('${i18nKey}') }}` : `$t('${i18nKey}')`
+      );
     };
 
   const transformSingleQuoteReplacer = (matched: string, group: string) => {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
-    if (notFoundTextCollectorSet.has(trimmedText)) {
-      notFoundTextCollectorSet.delete(trimmedText);
-    }
-
-    if (i18nKey) {
-      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
-    }
-
-    notFoundTextCollectorSet.add(trimmedText);
-
-    return matched;
+    return i18nKey
+      ? matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`)
+      : matched;
   };
 
   return str.replace(findTemplateRegex, (matchedScriptContent) => {
@@ -91,19 +54,11 @@ function replaceTextInScript(str: string) {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
-    if (notFoundTextCollectorSet.has(trimmedText)) {
-      notFoundTextCollectorSet.delete(trimmedText);
-    }
+    if (!i18nKey) return matched;
 
-    if (i18nKey) {
-      shouldInsertUseI18n = true;
+    shouldInsertUseI18n = true;
 
-      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
-    }
-
-    notFoundTextCollectorSet.add(trimmedText);
-
-    return matched;
+    return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
   };
 
   const insertUseI18nReplacer = (matched: string) => {
@@ -119,25 +74,7 @@ function replaceTextInScript(str: string) {
   });
 }
 
-async function replaceByPath(
-  path: string,
-  cb: (fileContent: string) => string
-) {
-  const filesPath = getFilesPath(path);
-
-  for (const filePath of filesPath) {
-    const fileContent = await getFileContent(filePath);
-    const replacedText = cb(fileContent);
-
-    Bun.write(filePath, replacedText);
-  }
-}
-
-function replaceVueFiles(rootDir: string) {
-  const pagesDirPath = `${rootDir}/src/pages`;
-  const componentsDirPath = `${rootDir}/src/components`;
-  const layoutsDirPath = `${rootDir}/src/layouts`;
-
+function replaceVueFiles() {
   const replaceCB = (fileContent: string) => {
     const replacedText = replaceTextInScript(
       replaceTextInTemplate(fileContent)
@@ -153,7 +90,7 @@ function replaceVueFiles(rootDir: string) {
   ]);
 }
 
-function replaceComposables(rootDir: string) {
+function replaceComposables() {
   function replaceTextInScript(str: string) {
     const functionStartRegex =
       /export\s(default\s)?(async\s)?function\s.+\(\)\s*\{/;
@@ -164,19 +101,11 @@ function replaceComposables(rootDir: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
-      if (notFoundTextCollectorSet.has(trimmedText)) {
-        notFoundTextCollectorSet.delete(trimmedText);
-      }
+      if (!i18nKey) return matched;
 
-      if (i18nKey) {
-        shouldInsertUseI18n = true;
+      shouldInsertUseI18n = true;
 
-        return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
-      }
-
-      notFoundTextCollectorSet.add(trimmedText);
-
-      return matched;
+      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
     };
 
     const insertUseI18nReplacer = (matched: string) => {
@@ -194,18 +123,11 @@ function replaceComposables(rootDir: string) {
     return replaceTextInScript(fileContent);
   };
 
-  return replaceByPath(`${rootDir}/src/composables`, replaceCB);
+  return replaceByPath(composablesDirPath, replaceCB);
 }
 
-const notFoundTextCollectorSet = new Set<string>();
 const reversedI18nJSON = reverseObject(i18nJSON);
-const FUNNOW_NICEDAY_DIR_PATH = '../../funnow/niceday.web';
-const TEST_DIR_PATH = '.';
 
-await Promise.all([
-  replaceVueFiles(TEST_DIR_PATH),
-  replaceComposables(TEST_DIR_PATH),
-]);
+await Promise.all([replaceVueFiles(), replaceComposables()]);
 
-console.log(notFoundTextCollectorSet);
 console.log('==== DONE ====');
