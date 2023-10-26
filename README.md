@@ -1,4 +1,4 @@
-# test-vue-ast
+# vue-i18n-key-replacer
 
 To install dependencies:
 

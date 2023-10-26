@@ -1,5 +1,5 @@
 {
-  "name": "test-vue-ast",
+  "name": "vue-i18n-key-replacer",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
