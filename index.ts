@@ -37,23 +37,31 @@ function replaceTextInTemplate(str: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
-      if (!i18nKey) return matched;
+      if (i18nKey) {
+        const isHTML = type === 'htmlContent';
 
-      const isHTML = type === 'htmlContent';
+        return matched.replace(
+          trimmedText,
+          isHTML ? `{{ $t('${i18nKey}') }}` : `$t('${i18nKey}')`
+        );
+      }
 
-      return matched.replace(
-        trimmedText,
-        isHTML ? `{{ $t('${i18nKey}') }}` : `$t('${i18nKey}')`
-      );
+      notFoundTextCollector.push(trimmedText);
+
+      return matched;
     };
 
   const transformSingleQuoteReplacer = (matched: string, group: string) => {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
-    if (!i18nKey) return matched;
+    if (i18nKey) {
+      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+    }
 
-    return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+    notFoundTextCollector.push(trimmedText);
+
+    return matched;
   };
 
   return str.replace(findTemplateRegex, (matchedScriptContent) => {
@@ -75,11 +83,15 @@ function replaceTextInScript(str: string) {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
-    if (!i18nKey) return matched;
+    if (i18nKey) {
+      shouldInsertUseI18n = true;
 
-    shouldInsertUseI18n = true;
+      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+    }
 
-    return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+    notFoundTextCollector.push(trimmedText);
+
+    return matched;
   };
 
   const insertUseI18nReplacer = (matched: string) => {
@@ -140,11 +152,15 @@ function replaceComposables(rootDir: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
-      if (!i18nKey) return matched;
+      if (i18nKey) {
+        shouldInsertUseI18n = true;
 
-      shouldInsertUseI18n = true;
+        return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+      }
 
-      return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
+      notFoundTextCollector.push(trimmedText);
+
+      return matched;
     };
 
     const insertUseI18nReplacer = (matched: string) => {
@@ -165,13 +181,15 @@ function replaceComposables(rootDir: string) {
   return replaceByPath(`${rootDir}/src/composables`, replaceCB);
 }
 
+const notFoundTextCollector: string[] = [];
 const reversedI18nJSON = reverseObject(i18nJSON);
 const FUNNOW_NICEDAY_DIR_PATH = '../../funnow/niceday.web';
 const TEST_DIR_PATH = '.';
 
 await Promise.all([
-  replaceVueFiles(FUNNOW_NICEDAY_DIR_PATH),
-  replaceComposables(FUNNOW_NICEDAY_DIR_PATH),
+  replaceVueFiles(TEST_DIR_PATH),
+  replaceComposables(TEST_DIR_PATH),
 ]);
 
+console.log(notFoundTextCollector);
 console.log('==== DONE ====');
