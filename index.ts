@@ -37,6 +37,10 @@ function replaceTextInTemplate(str: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
+      if (notFoundTextCollectorSet.has(trimmedText)) {
+        notFoundTextCollectorSet.delete(trimmedText);
+      }
+
       if (i18nKey) {
         const isHTML = type === 'htmlContent';
 
@@ -46,7 +50,7 @@ function replaceTextInTemplate(str: string) {
         );
       }
 
-      notFoundTextCollector.push(trimmedText);
+      notFoundTextCollectorSet.add(trimmedText);
 
       return matched;
     };
@@ -55,11 +59,15 @@ function replaceTextInTemplate(str: string) {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
+    if (notFoundTextCollectorSet.has(trimmedText)) {
+      notFoundTextCollectorSet.delete(trimmedText);
+    }
+
     if (i18nKey) {
       return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
     }
 
-    notFoundTextCollector.push(trimmedText);
+    notFoundTextCollectorSet.add(trimmedText);
 
     return matched;
   };
@@ -83,13 +91,17 @@ function replaceTextInScript(str: string) {
     const trimmedText = group.trim();
     const i18nKey = reversedI18nJSON[trimmedText];
 
+    if (notFoundTextCollectorSet.has(trimmedText)) {
+      notFoundTextCollectorSet.delete(trimmedText);
+    }
+
     if (i18nKey) {
       shouldInsertUseI18n = true;
 
       return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
     }
 
-    notFoundTextCollector.push(trimmedText);
+    notFoundTextCollectorSet.add(trimmedText);
 
     return matched;
   };
@@ -152,13 +164,17 @@ function replaceComposables(rootDir: string) {
       const trimmedText = group.trim();
       const i18nKey = reversedI18nJSON[trimmedText];
 
+      if (notFoundTextCollectorSet.has(trimmedText)) {
+        notFoundTextCollectorSet.delete(trimmedText);
+      }
+
       if (i18nKey) {
         shouldInsertUseI18n = true;
 
         return matched.replace(`'${trimmedText}'`, `t('${i18nKey}')`);
       }
 
-      notFoundTextCollector.push(trimmedText);
+      notFoundTextCollectorSet.add(trimmedText);
 
       return matched;
     };
@@ -181,7 +197,7 @@ function replaceComposables(rootDir: string) {
   return replaceByPath(`${rootDir}/src/composables`, replaceCB);
 }
 
-const notFoundTextCollector: string[] = [];
+const notFoundTextCollectorSet = new Set<string>();
 const reversedI18nJSON = reverseObject(i18nJSON);
 const FUNNOW_NICEDAY_DIR_PATH = '../../funnow/niceday.web';
 const TEST_DIR_PATH = '.';
@@ -191,5 +207,5 @@ await Promise.all([
   replaceComposables(TEST_DIR_PATH),
 ]);
 
-console.log(notFoundTextCollector);
+console.log(notFoundTextCollectorSet);
 console.log('==== DONE ====');
